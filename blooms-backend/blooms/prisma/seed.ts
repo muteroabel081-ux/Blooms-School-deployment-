@@ -41,7 +41,8 @@ async function main() {
   });
 
   // ── Admin login, linked to the headteacher's Staff record ──
-  const passwordHash = await bcrypt.hash("changeme123", 10);
+  const adminPassword = process.env.ADMIN_PASSWORD || "demo-password-123";
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
   await prisma.user.create({
     data: {
       name: "Grace Wanjiru",
@@ -125,7 +126,7 @@ async function main() {
   });
 
   console.log("Seed complete.");
-  console.log("  Admin login: g.wanjiru@bloomsjunior.school / changeme123");
+  console.log("  Admin login: g.wanjiru@bloomsjunior.school / [your-admin-password]");
   console.log(`  Student: ${student.firstName} ${student.lastName} (${student.admissionNo})`);
 }
 

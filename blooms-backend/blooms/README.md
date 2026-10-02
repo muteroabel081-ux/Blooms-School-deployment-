@@ -114,7 +114,7 @@ This also creates the one login you can use immediately:
 
 ```
 email:    g.wanjiru@bloomsjunior.school
-password: changeme123
+password: <set via ADMIN_PASSWORD in .env or defaults to demo-password-123>
 ```
 
 **Only run this once.** The seed script does not check for existing data
