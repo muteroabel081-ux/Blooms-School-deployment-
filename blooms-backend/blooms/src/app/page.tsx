@@ -152,11 +152,10 @@ export default function Home() {
 
         {/* Login hint */}
         <div style={{ marginTop: 32, padding: "16px 20px", background: "#0d0d1a", border: "1px solid #1a1a2e", borderRadius: 10 }}>
-          <div style={{ fontSize: 12, color: "#444", marginBottom: 8, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Demo Credentials</div>
-          <div style={{ fontFamily: "monospace", fontSize: 13, color: "#6366f1" }}>
-            g.wanjiru@bloomsjunior.school <span style={{ color: "#2a2a3a" }}>/ </span>changeme123
+          <div style={{ fontSize: 12, color: "#444", marginBottom: 8, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Access</div>
+          <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6 }}>
+            Admin account is created via <code style={{ color: "#444" }}>npm run db:seed</code>. Refer to the README for setup instructions and contact the system administrator for credentials.
           </div>
-          <div style={{ fontSize: 11, color: "#333", marginTop: 6 }}>Admin account seeded from <code style={{ color: "#444" }}>npx prisma db seed</code></div>
         </div>
       </div>
     </div>

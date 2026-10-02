@@ -145,9 +145,10 @@ export default function LoginPage() {
         </form>
 
         <div style={{ marginTop: 24, padding: "14px 16px", background: "#0d0d0a", border: "1px solid #1f1e10", borderRadius: 8 }}>
-          <div style={{ fontSize: 11, color: "#444", marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Demo credentials</div>
-          <div style={{ fontFamily: "monospace", fontSize: 12, color: "#a16207" }}>g.wanjiru@bloomsjunior.school</div>
-          <div style={{ fontFamily: "monospace", fontSize: 12, color: "#555", marginTop: 2 }}>changeme123</div>
+          <div style={{ fontSize: 11, color: "#444", marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Need access?</div>
+          <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6 }}>
+            Contact the system administrator or refer to the setup documentation for credentials.
+          </div>
         </div>
       </div>
     </div>
