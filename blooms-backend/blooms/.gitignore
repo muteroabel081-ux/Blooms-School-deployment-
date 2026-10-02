@@ -1,0 +1,17 @@
+node_modules
+
+# env — contains DATABASE_AUTH_TOKEN and NEXTAUTH_SECRET, must never be committed
+.env
+.env*.local
+
+# Next.js build output
+.next
+out
+
+# local SQLite db files (Turso is the source of truth in prod)
+/db/*.db
+/db/*.db-journal
+
+# misc
+.DS_Store
+*.log

@@ -1,0 +1,301 @@
+// ══════════════════════════════════════════════════════════
+// BLOOMS Junior School — Prisma Schema
+// ══════════════════════════════════════════════════════════
+// DB: SQLite locally, Turso (libSQL) in production.
+// Turso is just SQLite over the network, so the schema below
+// is standard `provider = "sqlite"` — no special Turso syntax
+// is needed here. The libsql *driver adapter* (see
+// src/lib/prisma.ts) is what actually points Prisma at Turso.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── NextAuth required tables ─────────────────────────────
+// Shape is fixed by @next-auth/prisma-adapter — do not rename
+// fields on these four models, NextAuth reads them by name.
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String? // bcrypt hash, only used by the Credentials provider
+  role          UserRole  @default(STAFF)
+
+  // Link a login identity to a Staff record so we can check
+  // "is this logged-in user the homeroom teacher of class X"
+  // without duplicating name/contact fields on User.
+  staffId String? @unique
+  // Explicit SetNull: if the linked Staff record is ever deleted,
+  // the User (login) row must survive — cascade-deleting it would
+  // lock someone out of the system as a side effect of an
+  // unrelated HR action. staffId simply clears, and an admin can
+  // relink it to a new Staff record.
+  staff   Staff?  @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  accounts Account[]
+  sessions Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ── Core school entities ─────────────────────────────────
+
+model Staff {
+  id          String    @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String    @unique
+  phone       String?
+  role        StaffRole @default(TEACHER)
+  hireDate    DateTime  @default(now())
+  active      Boolean   @default(true)
+
+  // A staff member's login identity, if they have one.
+  user User?
+
+  // Classes where this staff member is the homeroom teacher.
+  homeroomClasses Class[]      @relation("HomeroomTeacher")
+  scoresRecorded  Score[]      @relation("RecordedBy")
+  attendanceTaken Attendance[] @relation("TakenBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("staff")
+}
+
+enum StaffRole {
+  TEACHER
+  ADMIN
+  ACCOUNTANT
+  HEADTEACHER
+}
+
+model Class {
+  id        String @id @default(cuid())
+  name      String // e.g. "Grade 4 Blue"
+  level     Int // e.g. 4  — numeric grade/form level, distinct from academic Score
+  year      Int // academic year, e.g. 2026
+
+  homeroomTeacherId String?
+  // Explicit SetNull (matches Prisma's default for an optional
+  // scalar FK, stated explicitly rather than relied upon): if a
+  // homeroom teacher is deactivated/removed, the Class row survives
+  // with homeroomTeacherId: null, rather than the class itself
+  // being destroyed or blocked from deletion.
+  homeroomTeacher   Staff?  @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id], onDelete: SetNull)
+
+  students    Student[]
+  attendance  Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, year])
+  @@map("classes")
+}
+
+model Student {
+  id            String    @id @default(cuid())
+  admissionNo   String    @unique
+  firstName     String
+  lastName      String
+  dateOfBirth   DateTime?
+  gender        Gender?
+  guardianName  String?
+  guardianPhone String?
+  guardianEmail String?
+  address       String?
+  enrolledAt    DateTime  @default(now())
+  active        Boolean   @default(true)
+
+  classId String?
+  // Explicit SetNull — this is the field src/app/api/classes/[id]/route.ts
+  // is referring to when it says deleting a class "orphans its
+  // students to classId: null." Stated explicitly rather than
+  // relying on Prisma's implicit default for the same reason as
+  // Class.homeroomTeacher above.
+  class   Class?  @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  scores     Score[]
+  fees       Fee[]
+  attendance Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([classId])
+  @@map("students")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// Academic score record. Named `Score` (not `Grade`) to avoid
+// colliding with `Class.level`, which is the student's grade
+// *level* — see note above the Class model.
+model Score {
+  id      String @id @default(cuid())
+  subject String
+  term    String // e.g. "Term 1", "Term 2"
+  year    Int
+  score   Float // raw score
+  maxScore Float @default(100)
+  comment String?
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  recordedById String?
+  recordedBy   Staff?  @relation("RecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@map("scores")
+}
+
+model Fee {
+  id          String    @id @default(cuid())
+  description String // e.g. "Term 1 Tuition"
+  term        String
+  year        Int
+  amountDue   Float
+  dueDate     DateTime?
+  status      FeeStatus @default(UNPAID)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@map("fees")
+}
+
+enum FeeStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  WAIVED
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  amount    Float
+  method    String? // e.g. "M-Pesa", "Cash", "Bank Transfer"
+  reference String? // transaction/receipt reference
+  paidAt    DateTime @default(now())
+
+  feeId String
+  fee   Fee    @relation(fields: [feeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([feeId])
+  @@map("payments")
+}
+
+model Attendance {
+  id     String           @id @default(cuid())
+  date   DateTime
+  status AttendanceStatus @default(PRESENT)
+  note   String?
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  classId String
+  // Restrict, not Cascade: a class can have at most one cascading FK
+  // per row in SQLite, and Student already owns that slot above.
+  // Restrict also matches the documented behavior in
+  // src/app/api/classes/[id]/route.ts — deleting a class must not
+  // destroy historical records for students who may have since
+  // moved to a different class. This means: a class with any
+  // attendance history can't be deleted until that history is
+  // migrated or cleared first. That's a deliberate trade-off, not
+  // an oversight — surfacing it here since it changes what
+  // DELETE /api/classes/:id does in practice for any class that's
+  // ever taken attendance.
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Restrict)
+
+  takenById String?
+  takenBy   Staff?  @relation("TakenBy", fields: [takenById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, date])
+  @@index([classId, date])
+  @@map("attendance")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
